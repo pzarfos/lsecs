@@ -1,0 +1,110 @@
+#!/usr/bin/python
+
+#
+# List ECS servers with the IP address
+#
+# - Install AWS boto3 library
+# - For better looking output, use pip to install 'tabulate'
+#
+# Author: Blue Heron Labs LLC / Licence: MIT
+#
+
+import boto3
+import getopt
+import os
+import sys
+import pprint
+import tabulate
+
+
+def usage():
+    print('Usage: lsecs [-p <profile>] [-c cluster] -q clusters|tasks')
+
+
+def get_clusters(client):
+    output = []
+    response = client.list_clusters()
+    for cluster in response['clusterArns']:
+        output.append(cluster)
+    return output
+
+
+def get_containers(client, cluster):
+    tasklist = []
+    output   = []
+    response = client.list_tasks(cluster=cluster)
+    for taskarn in response['taskArns']:
+        tasklist.append(taskarn)
+    response = client.describe_tasks(cluster=cluster, tasks=tasklist)
+    for taskdata in response['tasks']:
+        container  = taskdata['containers'][0]
+        name       = container['name']
+        status     = container['lastStatus']
+        taskarn    = container['taskArn']
+        shortid    = taskarn.split('/', 1)[-1]
+        private_ip = container['networkInterfaces'][0]['privateIpv4Address']
+        output.append([ name, status, private_ip, shortid ])
+    return output
+
+
+def print_container_table(containers):
+    # display using tabulate
+    headers = ['Name', 'Status', 'Private IP', 'Task']
+    print(tabulate.tabulate(containers, headers=headers, tablefmt='plain'))
+
+    # if tabulate is not installed, use this to display results:
+    #outputformat = '{: <12} {: <8} {: <15} {}'
+    #print(outputformat.format(headers[0], headers[1], headers[2], headers[3]))
+    #for row in containers:
+    #    print(outputformat.format(row[0], row[1], row[2], row[3]))
+
+
+def main():
+    # command line options
+    profile = os.getenv('AWS_PROFILE', 'default')
+    cluster = ''
+    query   = ''
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],'hp:c:q:',['profile=','cluster=','query='])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            usage()
+            sys.exit(2)
+        elif opt in ('-p', '--profile'):
+            profile = arg
+        elif opt in ('-c', '--cluster'):
+            cluster = arg
+        elif opt in ('-q', '--query'):
+            query = arg
+
+    # open session to AWS CLI
+    # will raise ProfileNotFound exception if profile name not found
+    client = boto3.client('ecs')
+
+    if '' == query:
+        for cluster in get_clusters(client):
+            print('>>> ' + cluster)
+            containers = get_containers(client, cluster)
+            print_container_table(containers)
+        return
+
+    if 'cluster' == query:
+        for cluster in get_clusters(client):
+            print(cluster)
+        return
+
+    if query == 'tasks':
+        if '' == cluster:
+            print('Error: Missing --cluster argument')
+            usage()
+            sys.exit(2)
+        containers = get_containers(client, cluster)
+        print_container_table(containers)
+        return
+
+
+main()
+exit
