@@ -42,7 +42,11 @@ def get_containers(client, cluster):
         status     = container['lastStatus']
         taskarn    = container['taskArn']
         shortid    = taskarn.split('/', 1)[-1]
-        private_ip = container['networkInterfaces'][0]['privateIpv4Address']
+        private_ip = '???'
+        if 'networkInterfaces' in container:
+            if len(container['networkInterfaces']) > 0:
+                if 'privateIpv4Address' in container['networkInterfaces'][0]:
+                    private_ip = container['networkInterfaces'][0]['privateIpv4Address']
         output.append([ name, status, private_ip, shortid ])
     return output
 
