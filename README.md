@@ -22,6 +22,40 @@ app-cron   RUNNING   10.0.0.6     11111111-2222-3333-4444-666666666666
 * Install AWS boto3 using pip (google it for latest install instructions)
 * Install tabulate for better output, using pip (pip install tabulate --user)
 
+### IAM Policy
+
+This is an example IAM policy that will allow you to list the ECS cluster and task details.
+
+* Replace _REGION_ with your AWS region, like us-east-1
+* Replace _ACCOUNT_ID_ with your 12 digit AWS account ID
+* (Optional) Replace the wildcards * to restrict access to certain resources
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "ecs:ListContainerInstances",
+            "Resource": "arn:aws:ecs:_REGION_:_ACCOUNT_ID_:cluster/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "ecs:DescribeTasks",
+            "Resource": "arn:aws:ecs:_REGION_:_ACCOUNT_ID_:task/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecs:ListTasks",
+                "ecs:ListClusters"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
 ## Contributing
 
 Pull requests are welcome.
