@@ -2,7 +2,7 @@
 
 These scripts list AWS ECS containers, EC2 servers and their IP address.
 
-* Use ```lsecs``` to list your AWS ECS containers
+* Use ```lsecs``` to list your ECS containers
 * Use ```lsec2``` to list your EC2 servers
 
 Why is this useful? For development and debugging.
@@ -12,7 +12,7 @@ These scripts will show you the private IP addresses of running containers from 
 ## Sample Output
 
 ```sh
-# List EC2 resources
+# List ECS resources
 % lsecs
 >>> arn:aws:ecs:us-east-1:999999999999:cluster/YOUR-APPLICATION-cluster
 Name       Status    Private IP   Task                                   Age
