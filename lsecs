@@ -10,6 +10,7 @@
 #
 
 import boto3
+import datetime
 import getopt
 import os
 import sys
@@ -19,6 +20,14 @@ import tabulate
 
 def usage():
     print('Usage: lsecs [-p <profile>] [-c cluster] -q clusters|tasks')
+
+
+def time_ago(starttime):
+    tz = starttime.tzinfo
+    diff = datetime.datetime.now(tz) - starttime
+    # timedelta string looks like "55 days, 1:25:48.111432"
+    # chop off the milliseconds
+    return str(diff).split('.', 1)[0]
 
 
 def get_clusters(client):
@@ -38,6 +47,9 @@ def get_containers(client, cluster):
             tasklist.append(taskarn)
         response = client.describe_tasks(cluster=cluster, tasks=tasklist)
         for taskdata in response['tasks']:
+            timeago = 'starting'
+            if 'startedAt' in taskdata:
+                timeago = time_ago(taskdata['startedAt'])
             container  = taskdata['containers'][0]
             name       = container['name']
             status     = container['lastStatus']
@@ -48,20 +60,20 @@ def get_containers(client, cluster):
                 if len(container['networkInterfaces']) > 0:
                     if 'privateIpv4Address' in container['networkInterfaces'][0]:
                         private_ip = container['networkInterfaces'][0]['privateIpv4Address']
-            output.append([ name, status, private_ip, shortid ])
+            output.append([ name, status, private_ip, shortid, timeago ])
     return output
 
 
 def print_container_table(containers):
     # display using tabulate
-    headers = ['Name', 'Status', 'Private IP', 'Task']
+    headers = ['Name', 'Status', 'Private IP', 'Task', 'Launched']
     print(tabulate.tabulate(containers, headers=headers, tablefmt='plain'))
 
     # if tabulate is not installed, use this to display results:
-    #outputformat = '{: <12} {: <8} {: <15} {}'
-    #print(outputformat.format(headers[0], headers[1], headers[2], headers[3]))
+    #outputformat = '{: <12} {: <8} {: <15} {: <55} {}'
+    #print(outputformat.format(headers[0], headers[1], headers[2], headers[3], headers[4]))
     #for row in containers:
-    #    print(outputformat.format(row[0], row[1], row[2], row[3]))
+    #    print(outputformat.format(row[0], row[1], row[2], row[3], row[4]))
 
 
 def main():
