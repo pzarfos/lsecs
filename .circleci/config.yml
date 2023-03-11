@@ -1,0 +1,32 @@
+---
+# CircleCI
+version: 2.1
+
+jobs:
+  # Scan this repo for secrets that were accidentally committed
+  # using (a fork of) git-secrets
+  # https://github.com/awslabs/git-secrets
+  secrets_scanner:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Install git-secrets scanner
+          command: |
+            export BINDIR="${HOME}/bin"
+            test -d "${BINDIR}" || mkdir -p "${BINDIR}"
+            curl -s https://raw.githubusercontent.com/pzarfostph/git-secrets/master/git-secrets > "${BINDIR}/git-secrets"
+            chmod +x "${BINDIR}/git-secrets"
+            echo "${PATH}"
+      - run:
+          name: Register scanner patterns
+          command: git secrets --register-aws
+      - run:
+          name: Scan for Secrets
+          command: git secrets --scan --name-only
+
+workflows:
+  test:
+    jobs:
+      - secrets_scanner
