@@ -16,7 +16,7 @@ import tabulate
 import time
 
 def usage():
-    print('Usage: lsec2 [-p <profile>]')
+    print('Usage: lsec2 [-p <profile>] [-f <filter>]')
 
 
 def ec2InstanceName(instance):
@@ -43,8 +43,9 @@ def ec2AvailabilityZone(instance):
 def main():
     # command line options
     profile = os.getenv('AWS_PROFILE', 'default')
+    filter = ""
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hp:',['profile='])
+        opts, args = getopt.getopt(sys.argv[1:],'hpf:',['profile=', 'filter='])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -54,6 +55,8 @@ def main():
             sys.exit(2)
         elif opt in ('-p', '--profile'):
             profile = arg
+        elif opt in ('-f', '--filter'):
+            filter = arg
 
     # open session to AWS EC2
     # will raise ProfileNotFound exception if profile name not found
@@ -62,6 +65,7 @@ def main():
 
     # get list of instances
     instances = ec2.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+    instances = instances.filter(Filters=[{'Name': 'tag:Name', 'Values': ['*' + filter + '*']}])
 
     output = []
     for instance in instances:
