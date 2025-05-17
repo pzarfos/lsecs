@@ -12,20 +12,21 @@ import datetime
 import getopt
 import os
 import sys
-import tabulate
+import prettytable
 import time
 
+
 def usage():
-    print('Usage: lsec2 [-p <profile>]')
+    print("Usage: lsec2 [-p <profile>]")
 
 
 def ec2InstanceName(instance):
-    if instance is not None and hasattr(instance, 'tags') and instance.tags is not None:
+    if instance is not None and hasattr(instance, "tags") and instance.tags is not None:
         for tag in instance.tags:
-            key = tag.get('Key', '_')
-            if key == 'Name':
-                return tag.get('Value', '?')
-    return 'No-Name'
+            key = tag.get("Key", "_")
+            if key == "Name":
+                return tag.get("Value", "?")
+    return "No-Name"
 
 
 def ec2Age(instance):
@@ -33,53 +34,78 @@ def ec2Age(instance):
     diff = datetime.datetime.now(tz) - instance.launch_time
     # timedelta string looks like "55 days, 1:25:48.111432"
     # chop off the milliseconds
-    return str(diff).split('.', 1)[0]
+    return str(diff).split(".", 1)[0]
 
 
 def ec2AvailabilityZone(instance):
-    return instance.placement['AvailabilityZone']
+    return instance.placement["AvailabilityZone"]
 
 
 def main():
     # command line options
-    profile = os.getenv('AWS_PROFILE', 'default')
+    profile = os.getenv("AWS_PROFILE", "default")
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hp:',['profile='])
+        opts, args = getopt.getopt(sys.argv[1:], "hp:", ["profile="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     for opt, arg in opts:
-        if opt == '-h':
+        if opt == "-h":
             usage()
             sys.exit(2)
-        elif opt in ('-p', '--profile'):
+        elif opt in ("-p", "--profile"):
             profile = arg
 
     # open session to AWS EC2
     # will raise ProfileNotFound exception if profile name not found
     session = boto3.Session(profile_name=profile)
-    ec2     = session.resource('ec2')
+    ec2 = session.resource("ec2")
 
     # get list of instances
-    instances = ec2.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+    instances = ec2.instances.filter(
+        Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
+    )
 
     output = []
     for instance in instances:
         name = ec2InstanceName(instance)
-        az   = ec2AvailabilityZone(instance)
-        age  = ec2Age(instance)
-        output.append( [ name, instance.public_ip_address, instance.id, instance.instance_type, az, age ] )
+        az = ec2AvailabilityZone(instance)
+        age = ec2Age(instance)
+        output.append(
+            [
+                name,
+                instance.public_ip_address if instance.public_ip_address else "-",
+                instance.id,
+                instance.instance_type,
+                az,
+                age,
+            ]
+        )
 
     output = sorted(output, key=lambda k: (k[0], k[2]))
 
-    headers = ['Name', 'Public IP', 'ID', 'Type', 'AZ', 'Age']
+    headers = ["Name", "Public IP", "ID", "Type", "AZ", "Age"]
 
-    print(tabulate.tabulate(output, headers=headers, tablefmt='plain'))
+    table = prettytable.PrettyTable()
+    table.border = False
+    table.preserve_internal_border = True
+    table.vrules = prettytable.VRuleStyle.NONE
+    table.field_names = headers
+    # fmt: off
+    table.align["Name"] = "l"
+    table.align["Public IP"]   = "l"
+    table.align["ID"]  = "l"
+    table.align["Type"]      = "l"
+    table.align["AZ"]      = "l"
+    table.align["Age"]      = "l"
+    # fmt: on
+    table.add_rows(output)
+    print(table)
 
     # if tabulate is not installed, use this to display results:
-    #outputformat = '{: <25} {: <16} {: <20} {: <10} {: <10}  {}'
-    #print(outputformat.format(headers[0], headers[1], headers[2], headers[3], headers[4], headers[5]))
-    #for row in output:
+    # outputformat = '{: <25} {: <16} {: <20} {: <10} {: <10}  {}'
+    # print(outputformat.format(headers[0], headers[1], headers[2], headers[3], headers[4], headers[5]))
+    # for row in output:
     #    print(outputformat.format(row[0], row[1], row[2], row[3], row[4], row[5]))
 
 

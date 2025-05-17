@@ -4,9 +4,9 @@
 # List ECS servers with the IP address
 #
 # - Install AWS boto3 library
-# - For better looking output, use pip to install 'tabulate'
+# - For better looking output, use pip to install 'prettytable'
 #
-# Author: Blue Heron Labs LLC / Licence: MIT
+# Author: Blue Heron Labs LLC / License: MIT
 #
 
 import boto3
@@ -15,11 +15,11 @@ import getopt
 import os
 import sys
 import pprint
-import tabulate
+import prettytable
 
 
 def usage():
-    print('Usage: lsecs [-p <profile>] [-c cluster] -q clusters|tasks')
+    print("Usage: lsecs [-p <profile>] [-c cluster] -q clusters|tasks")
 
 
 def time_ago(starttime):
@@ -27,96 +27,118 @@ def time_ago(starttime):
     diff = datetime.datetime.now(tz) - starttime
     # timedelta string looks like "55 days, 1:25:48.111432"
     # chop off the milliseconds
-    return str(diff).split('.', 1)[0]
+    return str(diff).split(".", 1)[0]
 
 
 def get_clusters(client):
     output = []
     response = client.list_clusters()
-    for cluster in response['clusterArns']:
+    for cluster in response["clusterArns"]:
         output.append(cluster)
     return output
 
 
 def get_containers(client, cluster):
     tasklist = []
-    output   = []
+    output = []
     response = client.list_tasks(cluster=cluster)
-    if len(response['taskArns']) > 0:
-        for taskarn in response['taskArns']:
+    if len(response["taskArns"]) > 0:
+        for taskarn in response["taskArns"]:
             tasklist.append(taskarn)
         response = client.describe_tasks(cluster=cluster, tasks=tasklist)
-        for taskdata in response['tasks']:
-            timeago = 'starting'
-            if 'startedAt' in taskdata:
-                timeago = time_ago(taskdata['startedAt'])
-            container  = taskdata['containers'][0]
-            name       = container['name']
-            status     = container['lastStatus']
-            taskarn    = container['taskArn']
-            shortid    = taskarn.split('/', 1)[-1]
-            private_ip = '???'
-            if 'networkInterfaces' in container:
-                if len(container['networkInterfaces']) > 0:
-                    if 'privateIpv4Address' in container['networkInterfaces'][0]:
-                        private_ip = container['networkInterfaces'][0]['privateIpv4Address']
-            output.append([ name, status, private_ip, shortid, timeago ])
+        for taskdata in response["tasks"]:
+            timeago = "starting"
+            if "startedAt" in taskdata:
+                timeago = time_ago(taskdata["startedAt"])
+            container = taskdata["containers"][0]
+            name = container["name"]
+            status = container["lastStatus"]
+            taskarn = container["taskArn"]
+            shortid = taskarn.split("/", 1)[-1]
+            private_ip = "???"
+            if "networkInterfaces" in container:
+                if len(container["networkInterfaces"]) > 0:
+                    if "privateIpv4Address" in container["networkInterfaces"][0]:
+                        private_ip = container["networkInterfaces"][0][
+                            "privateIpv4Address"
+                        ]
+            output.append([name, status, private_ip, shortid, timeago])
     return output
 
 
 def print_container_table(containers):
-    # display using tabulate
-    headers = ['Name', 'Status', 'Private IP', 'Task', 'Launched']
-    print(tabulate.tabulate(containers, headers=headers, tablefmt='plain'))
+    # display using prettytable
+    headers = ["Name", "Status", "Private IP", "Task", "Launched"]
 
-    # if tabulate is not installed, use this to display results:
-    #outputformat = '{: <12} {: <8} {: <15} {: <55} {}'
-    #print(outputformat.format(headers[0], headers[1], headers[2], headers[3], headers[4]))
-    #for row in containers:
+    table = prettytable.PrettyTable()
+    table.border = False
+    table.preserve_internal_border = True
+    table.vrules = prettytable.VRuleStyle.NONE
+    table.field_names = headers
+    # fmt: off
+    table.align["Name"]      = "l"
+    table.align["Status"]    = "l"
+    table.align["Public IP"] = "l"
+    table.align["Task"]      = "l"
+    table.align["Launched"]  = "l"
+    # fmt: on
+    table.add_rows(containers)
+    print(table)
+
+    # if prettytable is not installed, use this to display results:
+    # outputformat = '{: <12} {: <8} {: <15} {: <55} {}'
+    # print(outputformat.format(headers[0], headers[1], headers[2], headers[3], headers[4]))
+    # for row in containers:
     #    print(outputformat.format(row[0], row[1], row[2], row[3], row[4]))
 
 
 def main():
     # command line options
-    profile = os.getenv('AWS_PROFILE', 'default')
-    cluster = ''
-    query   = ''
+    profile = os.getenv("AWS_PROFILE", "default")
+    cluster = ""
+    query = ""
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hp:c:q:',['profile=','cluster=','query='])
+        opts, args = getopt.getopt(
+            sys.argv[1:], "hp:c:q:", ["profile=", "cluster=", "query="]
+        )
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     for opt, arg in opts:
-        if opt == '-h':
+        if opt == "-h":
             usage()
             sys.exit(2)
-        elif opt in ('-p', '--profile'):
+        elif opt in ("-p", "--profile"):
             profile = arg
-        elif opt in ('-c', '--cluster'):
+        elif opt in ("-c", "--cluster"):
             cluster = arg
-        elif opt in ('-q', '--query'):
+        elif opt in ("-q", "--query"):
             query = arg
 
     # open session to AWS CLI
     # will raise ProfileNotFound exception if profile name not found
-    client = boto3.client('ecs')
+    client = boto3.client("ecs")
 
-    if '' == query:
+    if "" == query:
+        counter = 0
         for cluster in get_clusters(client):
-            print('>>> ' + cluster)
+            if (counter > 0):
+                print("")
+            print(">>> " + cluster)
             containers = get_containers(client, cluster)
             if len(containers) > 0:
                 print_container_table(containers)
+            counter += 1
         return
 
-    if 'cluster' == query:
+    if "cluster" == query:
         for cluster in get_clusters(client):
             print(cluster)
         return
 
-    if query == 'tasks':
-        if '' == cluster:
-            print('Error: Missing --cluster argument')
+    if query == "tasks":
+        if "" == cluster:
+            print("Error: Missing --cluster argument")
             usage()
             sys.exit(2)
         containers = get_containers(client, cluster)

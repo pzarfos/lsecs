@@ -31,7 +31,7 @@ web-01       10.0.10.102   i-99999999999999999   t3.large   us-east-1b   45 days
 
 * Python 3 is recommended (but will run with python 2.7)
 * Install AWS boto3 using pip (google it for latest install instructions)
-* Install tabulate for better output, using pip (pip install tabulate --user)
+* Install prettytable for better output, using pip (pip install prettytable --user)
 
 ### IAM
 
